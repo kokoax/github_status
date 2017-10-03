@@ -22,4 +22,7 @@ erl_crash.dump
 # Binary ignore
 github_status
 
+# config.exsにtokenみたいな機密情報をもたせるのでignore
+# でもconfigないにconfig.exsを作って欲しいのでconfig/は残す
 config/config.exs
+!config
