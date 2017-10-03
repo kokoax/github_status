@@ -21,3 +21,5 @@ erl_crash.dump
 
 # Binary ignore
 github_status
+
+config
