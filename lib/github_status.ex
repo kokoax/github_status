@@ -7,32 +7,57 @@ defmodule GithubStatus do
   ## Examples
   """
   def main(opts) do
-    {options, _, _} = OptionParser.parse(opts,
-      switches: [repository: :boolean, user: :string],
-      aliases:  [r: :repository, u: :user]
+    {options, _, _} = opts |> OptionParser.parse(
+      switches: [repository: :boolean, help: :boolean],
+      aliases:  [r: :repository, h: :help]
     )
-    IO.inspect options
-    if options |> Dict.has_key?(:user) do
-      repos = GithubRepository.new(options[:user])
-      IO.inspect "Number ofo Repository #{repos |> Enum.count |> Integer.to_string}"
-      IO.inspect repos
+
+    help = """
+        Usage: github_status
+        -r, --repository\t-- Output of Lang: RepoName
+    """
+
+    cond do
+      options[:help] ->
+        IO.puts help
+      options[:repository] ->
+        repos = GithubRepository.new()
+        repos |> Commands.repository
+      true ->
+        IO.puts help
     end
+  end
+end
+
+# Fix: Commandsからもっといい感じにする
+defmodule Commands do
+  def repository(repos) do
+    repos
+    |> Enum.map(fn(repo) ->
+      IO.puts "#{if repo.language == nil, do: "unknown", else: repo.language} #{repo.name}"
+    end)
   end
 end
 
 defmodule GithubRepository do
   defstruct [:name, :language, :stargazer]
-  def new(user) do
-    url = "https://api.github.com/users/#{user}/repos"
-    %HTTPoison.Response{status_code: 200, body: body} = HTTPoison.get!(url)
-    Poison.Parser.parse!(body)
-      |> Enum.map(&(
-          %GithubRepository {
-            name: &1["full_name"],
-            language: &1["language"],
-            stargazer: &1["stargazers_count"],
-          })
-        )
+  def new() do
+    Application.get_env(:user, :username)
+    |> Enum.map(fn(user) ->
+      url = "https://api.github.com/users/#{user}/repos"
+      header  = ["Authorization": "token #{Application.get_env(:user, :token)}"]
+      option = [ssl: [{:versions, [:'tlsv1.2']}], recv_timeout: 1000]
+      %HTTPoison.Response{status_code: 200, body: body} = HTTPoison.get!(url, header, option)
+      Poison.Parser.parse!(body)
+      |> Enum.map(fn(repo) ->
+        %GithubRepository {
+          name:      repo["full_name"],
+          language:  repo["language"],
+          stargazer: repo["stargazers_count"],
+        }
+      end)
+    end)
+    |> List.flatten
   end
 end
 
